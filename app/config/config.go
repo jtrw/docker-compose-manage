@@ -11,8 +11,12 @@ type Config struct {
 }
 
 type Project struct {
-	Name string `yaml:"name"`
-	Path string `yaml:"path"`
+	Name     string `yaml:"name"`
+	Path     string `yaml:"path"`
+	Commands struct {
+		Start string `yaml:"start"`
+		Stop  string `yaml:"stop"`
+	} `yaml:"commands"`
 }
 
 func LoadConfig(filename string) (Config, error) {
