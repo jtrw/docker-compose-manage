@@ -6,14 +6,21 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/jessevdk/go-flags"
 )
 
+type Commands struct {
+	Stop  string
+	Start string
+}
+
 type DockerCompose struct {
-	Index  int
-	Path   string
-	Status string
+	Index    int
+	Path     string
+	Status   string
+	Commands Commands
 }
 
 type Options struct {
@@ -42,17 +49,28 @@ func main() {
 	composes := []DockerCompose{}
 
 	for i, row := range cnf.Projects {
-		composes = append(composes, DockerCompose{Index: i, Path: row.Path, Status: "stopped"})
+		dc := DockerCompose{
+			Index:  i,
+			Path:   row.Path,
+			Status: "stopped",
+			Commands: Commands{
+				Start: row.Commands.Start,
+				Stop:  row.Commands.Stop,
+			},
+		}
+		composes = append(composes, dc)
 	}
 
 	for index, compose := range composes {
 		os.Chdir(compose.Path)
-		_, err := exec.Command("docker-compose", "ps").Output()
+		output, err := exec.Command("docker-compose", "top").Output()
 		if err != nil {
 			fmt.Println("Docker compose ps failed")
 			return
 		}
-		composes[index].Status = "running"
+		if len(output) > 0 {
+			composes[index].Status = "running"
+		}
 	}
 
 	for _, compose := range composes {
@@ -68,8 +86,15 @@ func main() {
 		panic(err)
 	}
 
-	output := composes[index].Stop()
-	fmt.Println(string(output))
+	for _, compose := range composes {
+		if compose.Index == index {
+			if composes[index].Status == "stopped" {
+				composes[index].Start()
+			} else {
+				composes[index].Stop()
+			}
+		}
+	}
 }
 
 func (d DockerCompose) String() string {
@@ -77,16 +102,34 @@ func (d DockerCompose) String() string {
 }
 
 func (d DockerCompose) Start() {
-	_, err := exec.Command("docker-compose", "up", "-d").Output()
+	os.Chdir(d.Path)
+
+	commands := []string{"docker-compose", "up", "-d"}
+
+	if d.Commands.Start != "" {
+		commands = strings.Split(d.Commands.Start, " ")
+	}
+	fmt.Println(commands)
+
+	output, err := exec.Command(commands[0], commands[1:]...).Output()
 	if err != nil {
 		fmt.Println("Docker compose up failed")
 	}
+	fmt.Println(string(output))
 }
 
 func (d DockerCompose) Stop() []byte {
-	output, err := exec.Command("docker-compose", "down").Output()
+	os.Chdir(d.Path)
+	commands := []string{"docker-compose", "down"}
+
+	if d.Commands.Stop != "" {
+		commands = strings.Split(d.Commands.Stop, " ")
+	}
+	fmt.Println(commands)
+	output, err := exec.Command(commands[0], commands[1:]...).Output()
 	if err != nil {
 		fmt.Println("Docker compose down failed")
 	}
+	fmt.Println(string(output))
 	return output
 }
