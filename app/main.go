@@ -11,6 +11,7 @@ import (
 )
 
 type DockerCompose struct {
+	Index  int
 	Path   string
 	Status string
 }
@@ -19,10 +20,10 @@ type Options struct {
 	Config string `short:"c" long:"config" env:"CONFIG" default:"config.yml" description:"config file"`
 }
 
-var revision string
+var revision string = "development"
 
 func main() {
-	log.Printf("[INFO] Micro tracker praser: %s\n", revision)
+	log.Printf("[INFO] Docker compose manager: %s\n", revision)
 
 	var opts Options
 	parser := flags.NewParser(&opts, flags.Default)
@@ -40,12 +41,11 @@ func main() {
 
 	composes := []DockerCompose{}
 
-	for _, row := range cnf.Projects {
-		composes = append(composes, DockerCompose{Path: row.Path, Status: "stopped"})
+	for i, row := range cnf.Projects {
+		composes = append(composes, DockerCompose{Index: i, Path: row.Path, Status: "stopped"})
 	}
 
 	for index, compose := range composes {
-		// Run docker-compose ps
 		os.Chdir(compose.Path)
 		_, err := exec.Command("docker-compose", "ps").Output()
 		if err != nil {
@@ -53,11 +53,23 @@ func main() {
 			return
 		}
 		composes[index].Status = "running"
-
-		//fmt.Println(string(output))
 	}
 
-	fmt.Println(composes)
+	for _, compose := range composes {
+		fmt.Printf("%d: %s Path: %s \n", compose.Index, compose.Status, compose.Path)
+	}
+
+	var index int
+
+	fmt.Printf("Enter index docker ...\n")
+	_, err = fmt.Scanln(&index)
+
+	if err != nil {
+		panic(err)
+	}
+
+	output := composes[index].Stop()
+	fmt.Println(string(output))
 }
 
 func (d DockerCompose) String() string {
@@ -71,9 +83,10 @@ func (d DockerCompose) Start() {
 	}
 }
 
-func (d DockerCompose) Stop() {
-	_, err := exec.Command("docker-compose", "down").Output()
+func (d DockerCompose) Stop() []byte {
+	output, err := exec.Command("docker-compose", "down").Output()
 	if err != nil {
 		fmt.Println("Docker compose down failed")
 	}
+	return output
 }
