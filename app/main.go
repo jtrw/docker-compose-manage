@@ -113,7 +113,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
-
 	if m.choice != "" {
 		var status string = "stopped"
 		for _, compose := range m.composes {
@@ -161,7 +160,6 @@ func main() {
 	for _, compose := range composes {
 		msg := fmt.Sprintf("%d: %s - %s", compose.Index, compose.Config.Name, compose.Status)
 		items = append(items, item(msg))
-		//fmt.Printf("%d: %s - %s \n", compose.Index, compose.Config.Name, compose.Status)
 	}
 
 	const defaultWidth = 20
@@ -182,29 +180,6 @@ func main() {
 		fmt.Println("could not start program:", err)
 		os.Exit(1)
 	}
-
-	// for _, compose := range composes {
-	// 	fmt.Printf("%d: %s - %s \n", compose.Index, compose.Config.Name, compose.Status)
-	// }
-
-	//var index int
-
-	// fmt.Printf("Enter index docker ...\n")
-	// _, err = fmt.Scanln(&index)
-
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// for _, compose := range composes {
-	// 	if compose.Index == index {
-	// 		if composes[index].Status == "stopped" {
-	// 			composes[index].Start()
-	// 		} else {
-	// 			composes[index].Stop()
-	// 		}
-	// 	}
-	// }
 }
 
 func loadComposes(cnf config.Config) ([]DockerCompose, error) {
