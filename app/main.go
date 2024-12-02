@@ -131,13 +131,13 @@ func (m model) View() string {
 		return quitTextStyle.Render(fmt.Sprintf("Containers was %s ...", status))
 	}
 	if m.quitting {
-		return quitTextStyle.Render("Not hungry? That’s cool.")
+		return quitTextStyle.Render("quitting ...")
 	}
 	return "\n" + m.list.View()
 }
 
 func main() {
-	log.Printf("[INFO] Docker compose manager: %s\n", revision)
+	//log.Printf("[INFO] Docker compose manager: %s\n", revision)
 
 	var opts Options
 	parser := flags.NewParser(&opts, flags.Default)
@@ -165,7 +165,7 @@ func main() {
 	const defaultWidth = 20
 
 	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
-	l.Title = "What do you want for dinner?"
+	l.Title = "Choise a compose to start/stop:"
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
 	l.Styles.Title = titleStyle
@@ -202,7 +202,6 @@ func loadComposes(cnf config.Config) ([]DockerCompose, error) {
 		if err != nil {
 			composes[index].Status = "error"
 			continue
-			//return nil, err
 		}
 		if len(output) > 0 {
 			composes[index].Status = "running"
