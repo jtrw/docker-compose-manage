@@ -8,11 +8,14 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/jessevdk/go-flags"
 
 	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/progress"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -46,6 +49,11 @@ var (
 	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
 )
 
+const (
+	focusColor = "#2EF8BB"
+	breakColor = "#FF5F87"
+)
+
 type item string
 
 func (i item) FilterValue() string { return "" }
@@ -74,11 +82,13 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 }
 
 type model struct {
+	form        *huh.Form
 	list        list.Model
 	choice      string
 	choiceIndex int
 	quitting    bool
 	composes    []DockerCompose
+	progress    progress.Model
 }
 
 func (m model) Init() tea.Cmd {
@@ -113,6 +123,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) View() string {
+
 	if m.choice != "" {
 		var status string = "stopped"
 		for _, compose := range m.composes {
@@ -134,6 +145,49 @@ func (m model) View() string {
 		return quitTextStyle.Render("quitting ...")
 	}
 	return "\n" + m.list.View()
+}
+
+func NewModel() model {
+	theme := huh.ThemeCharm()
+	theme.Focused.Base.Border(lipgloss.HiddenBorder())
+	theme.Focused.Title.Foreground(lipgloss.Color(focusColor))
+	theme.Focused.SelectSelector.Foreground(lipgloss.Color(focusColor))
+	theme.Focused.SelectedOption.Foreground(lipgloss.Color("15"))
+	theme.Focused.Option.Foreground(lipgloss.Color("7"))
+
+	form := huh.NewForm(
+		huh.NewGroup(
+			huh.NewSelect[time.Duration]().
+				Title("Focus Time").
+				Key("focus").
+				Options(
+					huh.NewOption("25 minutes", 25*time.Minute),
+					huh.NewOption("30 minutes", 30*time.Minute),
+					huh.NewOption("45 minutes", 45*time.Minute),
+					huh.NewOption("1 hour", time.Hour),
+				),
+		),
+		huh.NewGroup(
+			huh.NewSelect[time.Duration]().
+				Title("Break Time").
+				Key("break").
+				Options(
+					huh.NewOption("5 minutes", 5*time.Minute),
+					huh.NewOption("10 minutes", 10*time.Minute),
+					huh.NewOption("15 minutes", 15*time.Minute),
+					huh.NewOption("20 minutes", 20*time.Minute),
+				),
+		),
+	).WithShowHelp(false).WithTheme(theme)
+
+	progress := progress.New()
+	progress.FullColor = focusColor
+	progress.SetSpringOptions(1, 1)
+
+	return model{
+		form:     form,
+		progress: progress,
+	}
 }
 
 func main() {
@@ -172,7 +226,10 @@ func main() {
 	l.Styles.PaginationStyle = paginationStyle
 	l.Styles.HelpStyle = helpStyle
 
-	m := model{list: l, composes: composes}
+	m := NewModel()
+	m.list = l
+	m.composes = composes
+	//m := model{list: l, composes: composes}
 
 	p := tea.NewProgram(m)
 
