@@ -92,7 +92,7 @@ type model struct {
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return m.form.Init()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -113,7 +113,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.choice = string(i)
 				m.choiceIndex = m.list.Index()
 			}
-			return m, tea.Quit
+			_, cmd := m.list.Update(msg)
+			return m, cmd
 		}
 	}
 
