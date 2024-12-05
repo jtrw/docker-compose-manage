@@ -3,21 +3,26 @@ package main
 import (
 	"docker-compose-manage/m/app/config"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
-	"github.com/jessevdk/go-flags"
-
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/progress"
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/jessevdk/go-flags"
 )
+
+type Options struct {
+	Config string `short:"c" long:"config" env:"CONFIG" default:"config.yml" description:"config file"`
+}
+
+type item struct {
+	title   string
+	status  string
+	compose DockerCompose
+}
 
 type Commands struct {
 	Stop  string
@@ -30,170 +35,24 @@ type DockerCompose struct {
 	Status   string
 	Config   config.Project
 	Commands Commands
+	title    string
 }
 
-type Options struct {
-	Config string `short:"c" long:"config" env:"CONFIG" default:"config.yml" description:"config file"`
-}
-
-var revision string = "development"
-
-const listHeight = 14
-
-var (
-	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
-	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
-	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
-	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
-	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
-	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
-)
-
-const (
-	focusColor = "#2EF8BB"
-	breakColor = "#FF5F87"
-)
-
-type item string
-
-func (i item) FilterValue() string { return "" }
-
-type itemDelegate struct{}
-
-func (d itemDelegate) Height() int                             { return 1 }
-func (d itemDelegate) Spacing() int                            { return 0 }
-func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
-func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
-	i, ok := listItem.(item)
-	if !ok {
-		return
-	}
-
-	str := fmt.Sprintf("%d. %s", index+1, i)
-
-	fn := itemStyle.Render
-	if index == m.Index() {
-		fn = func(s ...string) string {
-			return selectedItemStyle.Render("> " + strings.Join(s, " "))
-		}
-	}
-
-	fmt.Fprint(w, fn(str))
-}
+func (i item) Title() string       { return i.title }
+func (i item) Description() string { return i.status }
+func (i item) FilterValue() string { return i.title }
 
 type model struct {
-	form        *huh.Form
 	list        list.Model
-	choice      string
-	choiceIndex int
-	quitting    bool
-	composes    []DockerCompose
-	progress    progress.Model
+	spinner     spinner.Model
+	showSpinner bool
+	activeItem  item
+	items       []item
 }
 
-func (m model) Init() tea.Cmd {
-	return m.form.Init()
-}
-
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.list.SetWidth(msg.Width)
-		return m, nil
-
-	case tea.KeyMsg:
-		switch keypress := msg.String(); keypress {
-		case "q", "ctrl+c":
-			m.quitting = true
-			return m, tea.Quit
-
-		case "enter":
-			i, ok := m.list.SelectedItem().(item)
-			if ok {
-				m.choice = string(i)
-				m.choiceIndex = m.list.Index()
-			}
-			_, cmd := m.list.Update(msg)
-			return m, cmd
-		}
-	}
-
-	var cmd tea.Cmd
-	m.list, cmd = m.list.Update(msg)
-	return m, cmd
-}
-
-func (m model) View() string {
-
-	if m.choice != "" {
-		var status string = "stopped"
-		for _, compose := range m.composes {
-			if compose.Index == m.choiceIndex {
-				if compose.Status == "stopped" {
-					fmt.Printf("Starting %s\n", compose.Config.Name)
-					compose.Start()
-					status = "started"
-				} else {
-					fmt.Printf("Stopping %s\n", compose.Config.Name)
-					compose.Stop()
-				}
-			}
-		}
-
-		return quitTextStyle.Render(fmt.Sprintf("Containers was %s ...", status))
-	}
-	if m.quitting {
-		return quitTextStyle.Render("quitting ...")
-	}
-	return "\n" + m.list.View()
-}
-
-func NewModel() model {
-	theme := huh.ThemeCharm()
-	theme.Focused.Base.Border(lipgloss.HiddenBorder())
-	theme.Focused.Title.Foreground(lipgloss.Color(focusColor))
-	theme.Focused.SelectSelector.Foreground(lipgloss.Color(focusColor))
-	theme.Focused.SelectedOption.Foreground(lipgloss.Color("15"))
-	theme.Focused.Option.Foreground(lipgloss.Color("7"))
-
-	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewSelect[time.Duration]().
-				Title("Focus Time").
-				Key("focus").
-				Options(
-					huh.NewOption("25 minutes", 25*time.Minute),
-					huh.NewOption("30 minutes", 30*time.Minute),
-					huh.NewOption("45 minutes", 45*time.Minute),
-					huh.NewOption("1 hour", time.Hour),
-				),
-		),
-		huh.NewGroup(
-			huh.NewSelect[time.Duration]().
-				Title("Break Time").
-				Key("break").
-				Options(
-					huh.NewOption("5 minutes", 5*time.Minute),
-					huh.NewOption("10 minutes", 10*time.Minute),
-					huh.NewOption("15 minutes", 15*time.Minute),
-					huh.NewOption("20 minutes", 20*time.Minute),
-				),
-		),
-	).WithShowHelp(false).WithTheme(theme)
-
-	progress := progress.New()
-	progress.FullColor = focusColor
-	progress.SetSpringOptions(1, 1)
-
-	return model{
-		form:     form,
-		progress: progress,
-	}
-}
+type processMsg struct{}
 
 func main() {
-	//log.Printf("[INFO] Docker compose manager: %s\n", revision)
-
 	var opts Options
 	parser := flags.NewParser(&opts, flags.Default)
 	_, err := parser.Parse()
@@ -210,33 +69,29 @@ func main() {
 
 	composes, _ := loadComposes(cnf)
 
-	items := []list.Item{}
+	items := []item{}
 
 	for _, compose := range composes {
-		msg := fmt.Sprintf("%d: %s - %s", compose.Index, compose.Config.Name, compose.Status)
-		items = append(items, item(msg))
+		title := fmt.Sprintf("%s (%s)", compose.Config.Name, compose.Status)
+		items = append(items, item{title: title, status: compose.Status, compose: compose})
 	}
 
-	const defaultWidth = 20
+	listItems := make([]list.Item, len(items))
+	for i, itm := range items {
+		listItems[i] = itm
+	}
 
-	l := list.New(items, itemDelegate{}, defaultWidth, listHeight)
-	l.Title = "Choise a compose to start/stop:"
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.Styles.Title = titleStyle
-	l.Styles.PaginationStyle = paginationStyle
-	l.Styles.HelpStyle = helpStyle
+	m := model{
+		list:    list.New(listItems, list.NewDefaultDelegate(), 0, 0),
+		spinner: spinner.New(),
+		items:   items,
+	}
 
-	m := NewModel()
-	m.list = l
-	m.composes = composes
-	//m := model{list: l, composes: composes}
+	m.list.Title = "Items List"
 
 	p := tea.NewProgram(m)
-
-	if _, err := p.Run(); err != nil {
-		fmt.Println("could not start program:", err)
-		os.Exit(1)
+	if err := p.Start(); err != nil {
+		fmt.Printf("Error running program: %v\n", err)
 	}
 }
 
@@ -269,39 +124,66 @@ func loadComposes(cnf config.Config) ([]DockerCompose, error) {
 	return composes, nil
 }
 
-func (d DockerCompose) String() string {
-	return fmt.Sprintf("Path: %s, Status: %s", d.Path, d.Status)
+func (m model) Init() tea.Cmd {
+	return nil
 }
 
-func (d DockerCompose) Start() ([]byte, error) {
-	os.Chdir(d.Path)
+func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "q":
+			return m, tea.Quit
+		case "enter":
+			selectedItem, ok := m.list.SelectedItem().(item)
+			if ok && !m.showSpinner {
+				m.activeItem = selectedItem
+				m.showSpinner = true
+				m.spinner = spinner.New()
+				return m, tea.Batch(m.spinner.Tick, processItem())
+			}
+		}
+	case processMsg:
+		// Update the status of the selected item
+		for i, itm := range m.items {
+			if itm.title == m.activeItem.title {
+				m.items[i] = item{title: itm.title, status: "Completed"}
+			}
+		}
 
-	commands := []string{"docker-compose", "up", "-d"}
+		listItems := make([]list.Item, len(m.items))
+		for i, itm := range m.items {
+			listItems[i] = itm
+		}
+		m.list.SetItems(listItems)
 
-	if d.Config.Commands.Start != "" {
-		commands = strings.Split(d.Config.Commands.Start, " ")
+		m.showSpinner = false
+		m.activeItem = item{}
+		return m, nil
 	}
 
-	output, err := exec.Command(commands[0], commands[1:]...).Output()
-	if err != nil {
-		return nil, err
+	// If showing spinner, update spinner only
+	if m.showSpinner {
+		var cmd tea.Cmd
+		m.spinner, cmd = m.spinner.Update(msg)
+		return m, cmd
 	}
 
-	return output, nil
+	// Default list update
+	var cmd tea.Cmd
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
 }
 
-func (d DockerCompose) Stop() ([]byte, error) {
-	os.Chdir(d.Path)
-	commands := []string{"docker-compose", "down"}
-
-	if d.Config.Commands.Stop != "" {
-		commands = strings.Split(d.Config.Commands.Stop, " ")
+func (m model) View() string {
+	if m.showSpinner {
+		return fmt.Sprintf("Processing %s...\n\n%s", m.activeItem.title, m.spinner.View())
 	}
+	return m.list.View()
+}
 
-	output, err := exec.Command(commands[0], commands[1:]...).Output()
-	if err != nil {
-		return nil, err
-	}
-
-	return output, nil
+func processItem() tea.Cmd {
+	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
+		return processMsg{}
+	})
 }
