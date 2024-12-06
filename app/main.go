@@ -3,15 +3,34 @@ package main
 import (
 	"docker-compose-manage/m/app/config"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jessevdk/go-flags"
+)
+
+const listHeight = 14
+
+var (
+	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
+	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
+	selectedItemStyle = lipgloss.NewStyle().PaddingLeft(2).Foreground(lipgloss.Color("170"))
+	paginationStyle   = list.DefaultStyles().PaginationStyle.PaddingLeft(4)
+	helpStyle         = list.DefaultStyles().HelpStyle.PaddingLeft(4).PaddingBottom(1)
+	quitTextStyle     = lipgloss.NewStyle().Margin(1, 0, 2, 4)
+)
+
+const (
+	focusColor = "#2EF8BB"
+	breakColor = "#FF5F87"
 )
 
 type Options struct {
@@ -41,6 +60,29 @@ type DockerCompose struct {
 func (i item) Title() string       { return i.title }
 func (i item) Description() string { return i.status }
 func (i item) FilterValue() string { return i.title }
+
+type itemDelegate struct{}
+
+func (d itemDelegate) Height() int                             { return 1 }
+func (d itemDelegate) Spacing() int                            { return 0 }
+func (d itemDelegate) Update(_ tea.Msg, _ *list.Model) tea.Cmd { return nil }
+func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list.Item) {
+	i, ok := listItem.(item)
+	if !ok {
+		return
+	}
+
+	str := fmt.Sprintf("%d. %s", index+1, i)
+
+	fn := itemStyle.Render
+	if index == m.Index() {
+		fn = func(s ...string) string {
+			return selectedItemStyle.Render("> " + strings.Join(s, " "))
+		}
+	}
+
+	fmt.Fprint(w, fn(str))
+}
 
 type model struct {
 	list        list.Model
@@ -81,8 +123,18 @@ func main() {
 		listItems[i] = itm
 	}
 
+	const defaultWidth = 20
+
+	l := list.New(listItems, itemDelegate{}, defaultWidth, listHeight)
+	l.Title = "Choise a compose to start/stop:"
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false)
+	l.Styles.Title = titleStyle
+	l.Styles.PaginationStyle = paginationStyle
+	l.Styles.HelpStyle = helpStyle
+
 	m := model{
-		list:    list.New(listItems, list.NewDefaultDelegate(), 0, 0),
+		list:    list.New(listItems, list.NewDefaultDelegate(), defaultWidth, listHeight),
 		spinner: spinner.New(),
 		items:   items,
 	}
