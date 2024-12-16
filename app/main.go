@@ -17,7 +17,7 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-const listHeight = 14
+const listHeight = 20
 
 var (
 	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
@@ -89,6 +89,7 @@ type model struct {
 	spinner     spinner.Model
 	showSpinner bool
 	activeItem  item
+	choiceIndex int
 	items       []item
 }
 
@@ -123,7 +124,7 @@ func main() {
 		listItems[i] = itm
 	}
 
-	const defaultWidth = 20
+	const defaultWidth = 100
 
 	l := list.New(listItems, itemDelegate{}, defaultWidth, listHeight)
 	l.Title = "Choise a compose to start/stop:"
@@ -162,15 +163,8 @@ func loadComposes(cnf config.Config) ([]DockerCompose, error) {
 	}
 
 	for index, compose := range composes {
-		os.Chdir(compose.Path)
-		output, err := exec.Command("docker-compose", "top").Output()
-		if err != nil {
-			composes[index].Status = "error"
-			continue
-		}
-		if len(output) > 0 {
-			composes[index].Status = "running"
-		}
+		status, _ := compose.getActualStatus()
+		composes[index].Status = status
 	}
 
 	return composes, nil
@@ -192,6 +186,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.activeItem = selectedItem
 				m.showSpinner = true
 				m.spinner = spinner.New()
+				m.choiceIndex = m.list.Index()
 				return m, tea.Batch(m.spinner.Tick, processItem())
 			}
 		}
@@ -229,7 +224,29 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.showSpinner {
-		return fmt.Sprintf("Processing %s...\n\n%s", m.activeItem.title, m.spinner.View())
+		var status string = "stopped"
+		for _, item := range m.items {
+			if item.compose.Index == m.choiceIndex {
+				if item.compose.Status == "stopped" {
+					//fmt.Printf("Starting %s\n", item.compose.Config.Name)
+					_, err := item.compose.Start()
+					if err != nil {
+						log.Printf("[ERROR] %v", err)
+					}
+					item.compose.Status = "started"
+					status = "started"
+				} else {
+					//fmt.Printf("Stopping %s\n", item.compose.Config.Name)
+					_, err := item.compose.Stop()
+					if err != nil {
+						log.Printf("[ERROR] %v", err)
+					}
+					item.compose.Status = "stopped"
+				}
+			}
+		}
+
+		return fmt.Sprintf("Processing %s to status %s ... \n\n%s", m.activeItem.title, status, m.spinner.View())
 	}
 	return m.list.View()
 }
@@ -238,4 +255,55 @@ func processItem() tea.Cmd {
 	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
 		return processMsg{}
 	})
+}
+
+func (d DockerCompose) String() string {
+	return fmt.Sprintf("Path: %s, Status: %s", d.Path, d.Status)
+}
+
+func (d DockerCompose) Start() ([]byte, error) {
+	os.Chdir(d.Path)
+
+	commands := []string{"docker-compose", "up", "-d"}
+
+	if d.Config.Commands.Start != "" {
+		commands = strings.Split(d.Config.Commands.Start, " ")
+	}
+
+	output, err := exec.Command(commands[0], commands[1:]...).Output()
+	if err != nil {
+		return nil, err
+	}
+
+	return output, nil
+}
+
+func (d DockerCompose) Stop() ([]byte, error) {
+	os.Chdir(d.Path)
+	commands := []string{"docker-compose", "down"}
+
+	if d.Config.Commands.Stop != "" {
+		commands = strings.Split(d.Config.Commands.Stop, " ")
+	}
+
+	output, err := exec.Command(commands[0], commands[1:]...).Output()
+	if err != nil {
+		return nil, err
+	}
+
+	return output, nil
+}
+
+func (d *DockerCompose) getActualStatus() (string, error) {
+	os.Chdir(d.Path)
+	output, err := exec.Command("docker-compose", "top").Output()
+	if err != nil {
+		return "", err
+	}
+	if len(output) > 0 {
+		d.Status = "running"
+		return "running", nil
+	}
+	d.Status = "stopped"
+	return "stopped", nil
 }
