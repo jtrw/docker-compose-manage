@@ -124,6 +124,15 @@ func main() {
 		listItems[i] = itm
 	}
 
+	m := getModel(listItems, items)
+
+	p := tea.NewProgram(m)
+	if err := p.Start(); err != nil {
+		fmt.Printf("Error running program: %v\n", err)
+	}
+}
+
+func getModel(listItems []list.Item, items []item) model {
 	const defaultWidth = 100
 
 	l := list.New(listItems, itemDelegate{}, defaultWidth, listHeight)
@@ -142,10 +151,7 @@ func main() {
 
 	m.list.Title = "Items List"
 
-	p := tea.NewProgram(m)
-	if err := p.Start(); err != nil {
-		fmt.Printf("Error running program: %v\n", err)
-	}
+	return m
 }
 
 func loadComposes(cnf config.Config) ([]DockerCompose, error) {
@@ -228,7 +234,6 @@ func (m model) View() string {
 		for _, item := range m.items {
 			if item.compose.Index == m.choiceIndex {
 				if item.compose.Status == "stopped" {
-					//fmt.Printf("Starting %s\n", item.compose.Config.Name)
 					_, err := item.compose.Start()
 					if err != nil {
 						log.Printf("[ERROR] %v", err)
@@ -236,7 +241,6 @@ func (m model) View() string {
 					item.compose.Status = "started"
 					status = "started"
 				} else {
-					//fmt.Printf("Stopping %s\n", item.compose.Config.Name)
 					_, err := item.compose.Stop()
 					if err != nil {
 						log.Printf("[ERROR] %v", err)
