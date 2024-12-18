@@ -298,16 +298,14 @@ func (d DockerCompose) Stop() ([]byte, error) {
 	return output, nil
 }
 
-func (d *DockerCompose) getActualStatus() (string, error) {
+func (d DockerCompose) getActualStatus() (string, error) {
 	os.Chdir(d.Path)
 	output, err := exec.Command("docker-compose", "top").Output()
 	if err != nil {
 		return "", err
 	}
 	if len(output) > 0 {
-		d.Status = "running"
 		return "running", nil
 	}
-	d.Status = "stopped"
 	return "stopped", nil
 }
