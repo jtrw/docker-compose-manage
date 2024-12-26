@@ -115,7 +115,7 @@ func main() {
 	items := []item{}
 
 	for _, compose := range composes {
-		title := fmt.Sprintf("%s (%s)", compose.Config.Name, compose.Status)
+		title := fmt.Sprintf("%s", compose.Config.Name)
 		items = append(items, item{title: title, status: compose.Status, compose: compose})
 	}
 
@@ -200,7 +200,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update the status of the selected item
 		for i, itm := range m.items {
 			if itm.title == m.activeItem.title {
-				m.items[i] = item{title: itm.title, status: "Completed"}
+				m.items[i] = item{title: itm.title, status: "stopped"}
 			}
 		}
 
