@@ -2,11 +2,11 @@ package main
 
 import (
 	"docker-compose-manage/m/app/config"
+	compose "docker-compose-manage/m/app/docker"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -40,21 +40,7 @@ type Options struct {
 type item struct {
 	title   string
 	status  string
-	compose DockerCompose
-}
-
-type Commands struct {
-	Stop  string
-	Start string
-}
-
-type DockerCompose struct {
-	Index    int
-	Path     string
-	Status   string
-	Config   config.Project
-	Commands Commands
-	title    string
+	compose compose.DockerCompose
 }
 
 func (i item) Title() string       { return i.title }
@@ -154,11 +140,11 @@ func getModel(listItems []list.Item, items []item) model {
 	return m
 }
 
-func loadComposes(cnf config.Config) ([]DockerCompose, error) {
-	composes := []DockerCompose{}
+func loadComposes(cnf config.Config) ([]compose.DockerCompose, error) {
+	composes := []compose.DockerCompose{}
 	index := 0
 	for _, row := range cnf.Projects {
-		dc := DockerCompose{
+		dc := compose.DockerCompose{
 			Index:  index,
 			Path:   row.Path,
 			Status: "stopped",
@@ -169,7 +155,7 @@ func loadComposes(cnf config.Config) ([]DockerCompose, error) {
 	}
 
 	for index, compose := range composes {
-		status, _ := compose.getActualStatus()
+		status, _ := compose.GetActualStatus()
 		composes[index].Status = status
 	}
 
@@ -261,52 +247,52 @@ func processItem() tea.Cmd {
 	})
 }
 
-func (d DockerCompose) String() string {
-	return fmt.Sprintf("Path: %s, Status: %s", d.Path, d.Status)
-}
+// func (d DockerCompose) String() string {
+// 	return fmt.Sprintf("Path: %s, Status: %s", d.Path, d.Status)
+// }
 
-func (d DockerCompose) Start() ([]byte, error) {
-	os.Chdir(d.Path)
+// func (d DockerCompose) Start() ([]byte, error) {
+// 	os.Chdir(d.Path)
 
-	commands := []string{"docker-compose", "up", "-d"}
+// 	commands := []string{"docker-compose", "up", "-d"}
 
-	if d.Config.Commands.Start != "" {
-		commands = strings.Split(d.Config.Commands.Start, " ")
-	}
+// 	if d.Config.Commands.Start != "" {
+// 		commands = strings.Split(d.Config.Commands.Start, " ")
+// 	}
 
-	output, err := exec.Command(commands[0], commands[1:]...).Output()
-	if err != nil {
-		return nil, err
-	}
+// 	output, err := exec.Command(commands[0], commands[1:]...).Output()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return output, nil
-}
+// 	return output, nil
+// }
 
-func (d DockerCompose) Stop() ([]byte, error) {
-	os.Chdir(d.Path)
-	commands := []string{"docker-compose", "down"}
+// func (d DockerCompose) Stop() ([]byte, error) {
+// 	os.Chdir(d.Path)
+// 	commands := []string{"docker-compose", "down"}
 
-	if d.Config.Commands.Stop != "" {
-		commands = strings.Split(d.Config.Commands.Stop, " ")
-	}
+// 	if d.Config.Commands.Stop != "" {
+// 		commands = strings.Split(d.Config.Commands.Stop, " ")
+// 	}
 
-	output, err := exec.Command(commands[0], commands[1:]...).Output()
-	if err != nil {
-		return nil, err
-	}
+// 	output, err := exec.Command(commands[0], commands[1:]...).Output()
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return output, nil
-}
+// 	return output, nil
+// }
 
-func (d *DockerCompose) getActualStatus() (string, error) {
-	os.Chdir(d.Path)
-	output, err := exec.Command("docker-compose", "top").Output()
-	if err != nil {
-		return "", err
-	}
-	if len(output) > 0 {
-		return "running", nil
-	}
-	d.Status = "stopped"
-	return "stopped", nil
-}
+// func (d DockerCompose) getActualStatus() (string, error) {
+// 	os.Chdir(d.Path)
+// 	output, err := exec.Command("docker-compose", "top").Output()
+// 	if err != nil {
+// 		return "", err
+// 	}
+// 	if len(output) > 0 {
+// 		return "running", nil
+// 	}
+
+// 	return "stopped", nil
+// }
