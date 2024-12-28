@@ -22,6 +22,28 @@ type DockerCompose struct {
 	title    string
 }
 
+func LoadComposes(cnf config.Config) ([]DockerCompose, error) {
+	composes := []DockerCompose{}
+	index := 0
+	for _, row := range cnf.Projects {
+		dc := DockerCompose{
+			Index:  index,
+			Path:   row.Path,
+			Status: "stopped",
+			Config: row,
+		}
+		composes = append(composes, dc)
+		index++
+	}
+
+	for index, compose := range composes {
+		status, _ := compose.GetActualStatus()
+		composes[index].Status = status
+	}
+
+	return composes, nil
+}
+
 func (d DockerCompose) String() string {
 	return fmt.Sprintf("Path: %s, Status: %s", d.Path, d.Status)
 }
