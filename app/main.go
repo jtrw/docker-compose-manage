@@ -96,7 +96,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	composes, _ := loadComposes(cnf)
+	composes, _ := compose.LoadComposes(cnf)
 
 	items := []item{}
 
@@ -138,28 +138,6 @@ func getModel(listItems []list.Item, items []item) model {
 	m.list.Title = "Items List"
 
 	return m
-}
-
-func loadComposes(cnf config.Config) ([]compose.DockerCompose, error) {
-	composes := []compose.DockerCompose{}
-	index := 0
-	for _, row := range cnf.Projects {
-		dc := compose.DockerCompose{
-			Index:  index,
-			Path:   row.Path,
-			Status: "stopped",
-			Config: row,
-		}
-		composes = append(composes, dc)
-		index++
-	}
-
-	for index, compose := range composes {
-		status, _ := compose.GetActualStatus()
-		composes[index].Status = status
-	}
-
-	return composes, nil
 }
 
 func (m model) Init() tea.Cmd {
