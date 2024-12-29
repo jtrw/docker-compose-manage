@@ -17,8 +17,6 @@ import (
 	"github.com/jessevdk/go-flags"
 )
 
-const listHeight = 20
-
 var (
 	titleStyle        = lipgloss.NewStyle().MarginLeft(2)
 	itemStyle         = lipgloss.NewStyle().PaddingLeft(4)
@@ -31,6 +29,7 @@ var (
 const (
 	focusColor = "#2EF8BB"
 	breakColor = "#FF5F87"
+	listHeight = 20
 )
 
 type Options struct {
