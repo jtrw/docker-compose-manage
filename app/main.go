@@ -27,9 +27,10 @@ var (
 )
 
 const (
-	focusColor = "#2EF8BB"
-	breakColor = "#FF5F87"
-	listHeight = 20
+	focusColor   = "#2EF8BB"
+	breakColor   = "#FF5F87"
+	listHeight   = 20
+	defaultWidth = 100
 )
 
 type Options struct {
@@ -95,8 +96,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	composes, _ := compose.LoadComposes(cnf)
+	m := getModel(cnf)
 
+	p := tea.NewProgram(m)
+	if err := p.Start(); err != nil {
+		fmt.Printf("Error running program: %v\n", err)
+	}
+}
+
+func getListItems(composes []compose.DockerCompose) []list.Item {
 	items := []item{}
 
 	for _, compose := range composes {
@@ -109,16 +117,13 @@ func main() {
 		listItems[i] = itm
 	}
 
-	m := getModel(listItems, items)
-
-	p := tea.NewProgram(m)
-	if err := p.Start(); err != nil {
-		fmt.Printf("Error running program: %v\n", err)
-	}
+	return listItems
 }
 
-func getModel(listItems []list.Item, items []item) model {
-	const defaultWidth = 100
+func getModel(cnf config.Config) model {
+	composes, _ := compose.LoadComposes(cnf)
+
+	listItems := getListItems(composes)
 
 	l := list.New(listItems, itemDelegate{}, defaultWidth, listHeight)
 	l.Title = "Choise a compose to start/stop:"
