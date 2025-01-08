@@ -104,7 +104,7 @@ func main() {
 	}
 }
 
-func getListItems(composes []compose.DockerCompose) []list.Item {
+func getListItems(composes []compose.DockerCompose) ([]list.Item, []item) {
 	items := []item{}
 
 	for _, compose := range composes {
@@ -117,13 +117,13 @@ func getListItems(composes []compose.DockerCompose) []list.Item {
 		listItems[i] = itm
 	}
 
-	return listItems
+	return listItems, items
 }
 
 func getModel(cnf config.Config) model {
 	composes, _ := compose.LoadComposes(cnf)
 
-	listItems := getListItems(composes)
+	listItems, items := getListItems(composes)
 
 	l := list.New(listItems, itemDelegate{}, defaultWidth, listHeight)
 	l.Title = "Choise a compose to start/stop:"
