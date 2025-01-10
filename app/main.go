@@ -206,8 +206,8 @@ func (m model) View() string {
 					if err != nil {
 						log.Printf("[ERROR] %v", err)
 					}
-					item.compose.Status = "started"
-					status = "started"
+					item.compose.Status = "running"
+					status = "running"
 				} else {
 					_, err := item.compose.Stop()
 					if err != nil {
