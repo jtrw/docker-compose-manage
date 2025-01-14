@@ -48,8 +48,6 @@ func (d DockerCompose) String() string {
 }
 
 func (d DockerCompose) Start() ([]byte, error) {
-	//os.Chdir(d.Path)
-
 	commands := []string{"docker-compose", "up", "-d"}
 
 	if d.Config.Commands.Start != "" {
@@ -66,7 +64,6 @@ func (d DockerCompose) Start() ([]byte, error) {
 }
 
 func (d DockerCompose) Stop() ([]byte, error) {
-	//os.Chdir(d.Path)
 	commands := []string{"docker-compose", "down"}
 
 	if d.Config.Commands.Stop != "" {
@@ -83,7 +80,6 @@ func (d DockerCompose) Stop() ([]byte, error) {
 }
 
 func (d DockerCompose) GetActualStatus() (string, error) {
-	//os.Chdir(d.Path)
 	cmd := exec.Command("docker-compose", "top")
 	cmd.Dir = d.Path
 	output, err := cmd.Output()
