@@ -181,6 +181,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.showSpinner = false
 		m.activeItem = item{}
 		return m, nil
+
 	}
 
 	// If showing spinner, update spinner only
@@ -200,21 +201,22 @@ func (m model) View() string {
 	if m.showSpinner {
 		var status string = "stopped"
 		for _, item := range m.items {
-			if item.compose.Index == m.choiceIndex {
-				if item.compose.Status == "stopped" {
-					_, err := item.compose.Start()
-					if err != nil {
-						log.Printf("[ERROR] %v", err)
-					}
-					item.compose.Status = "running"
-					status = "running"
-				} else {
-					_, err := item.compose.Stop()
-					if err != nil {
-						log.Printf("[ERROR] %v", err)
-					}
-					item.compose.Status = "stopped"
+			if item.compose.Index != m.choiceIndex {
+				continue
+			}
+			if item.compose.Status == "stopped" {
+				_, err := item.compose.Start()
+				if err != nil {
+					log.Printf("[ERROR] %v", err)
 				}
+				item.compose.Status = "running"
+				status = "running"
+			} else {
+				_, err := item.compose.Stop()
+				if err != nil {
+					log.Printf("[ERROR] %v", err)
+				}
+				item.compose.Status = "stopped"
 			}
 		}
 
