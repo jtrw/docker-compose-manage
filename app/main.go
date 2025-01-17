@@ -205,17 +205,19 @@ func (m model) View() string {
 				continue
 			}
 			if item.compose.Status == "stopped" {
-				_, err := item.compose.Start()
-				if err != nil {
-					log.Printf("[ERROR] %v", err)
-				}
+				go item.compose.Start()
+				// _, err := item.compose.Start()
+				// if err != nil {
+				// 	log.Printf("[ERROR] %v", err)
+				// }
 				item.compose.Status = "running"
 				status = "running"
 			} else {
-				_, err := item.compose.Stop()
-				if err != nil {
-					log.Printf("[ERROR] %v", err)
-				}
+				go item.compose.Stop()
+				// _, err := item.compose.Stop()
+				// if err != nil {
+				// 	log.Printf("[ERROR] %v", err)
+				// }
 				item.compose.Status = "stopped"
 			}
 		}
@@ -226,7 +228,7 @@ func (m model) View() string {
 }
 
 func processItem() tea.Cmd {
-	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
+	return tea.Tick(time.Second*1, func(t time.Time) tea.Msg {
 		return processMsg{}
 	})
 }
