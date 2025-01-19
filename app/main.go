@@ -168,7 +168,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Update the status of the selected item
 		for i, itm := range m.items {
 			if itm.title == m.activeItem.title {
-				m.items[i] = item{title: itm.title, status: "stopped"}
+				status := "stopped"
+				if itm.compose.Status == "stopped" {
+					status = "running"
+				}
+				m.items[i] = item{title: itm.title, status: status}
 			}
 		}
 
