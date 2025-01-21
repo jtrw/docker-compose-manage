@@ -204,27 +204,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	if m.showSpinner {
 		var status string = "stopped"
+		ch := make(chan string)
 		for _, item := range m.items {
 			if item.compose.Index != m.choiceIndex {
 				continue
 			}
 			if item.compose.Status == "stopped" {
-				go item.compose.Start()
-				// _, err := item.compose.Start()
-				// if err != nil {
-				// 	log.Printf("[ERROR] %v", err)
-				// }
+				go item.compose.StartAsync(ch)
+
 				item.compose.Status = "running"
 				status = "running"
 			} else {
-				go item.compose.Stop()
-				// _, err := item.compose.Stop()
-				// if err != nil {
-				// 	log.Printf("[ERROR] %v", err)
-				// }
+				go item.compose.StopAsync(ch)
 				item.compose.Status = "stopped"
 			}
 		}
+
+		//res := <-ch
+		//
+		//fmt.Println(res)
 
 		return fmt.Sprintf("Processing %s to status %s ... \n\n%s", m.activeItem.title, status, m.spinner.View())
 	}

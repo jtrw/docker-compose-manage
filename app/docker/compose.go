@@ -92,3 +92,21 @@ func (d DockerCompose) GetActualStatus() (string, error) {
 
 	return "stopped", nil
 }
+
+func (d DockerCompose) StartAsync(ch chan string) {
+	_, err := d.Start()
+	if err != nil {
+		ch <- fmt.Sprintf("Error: %v", err)
+		return
+	}
+	ch <- fmt.Sprintf("Started %s", d.Config.Name)
+}
+
+func (d DockerCompose) StopAsync(ch chan string) {
+	_, err := d.Stop()
+	if err != nil {
+		ch <- fmt.Sprintf("Error: %v", err)
+		return
+	}
+	ch <- fmt.Sprintf("Stopped %s", d.Config.Name)
+}
