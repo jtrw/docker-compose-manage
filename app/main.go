@@ -77,6 +77,7 @@ type model struct {
 	activeItem  item
 	choiceIndex int
 	items       []item
+	ch          chan string
 }
 
 type processMsg struct{}
@@ -137,6 +138,7 @@ func getModel(cnf config.Config) model {
 		list:    list.New(listItems, list.NewDefaultDelegate(), defaultWidth, listHeight),
 		spinner: spinner.New(),
 		items:   items,
+		ch:      make(chan string),
 	}
 
 	m.list.Title = "Items List"
@@ -161,7 +163,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showSpinner = true
 				m.spinner = spinner.New()
 				m.choiceIndex = m.list.Index()
-				return m, tea.Batch(m.spinner.Tick, processItem())
+				return m, tea.Batch(m.spinner.Tick, processItem(m.ch))
 			}
 		}
 	case processMsg:
@@ -204,18 +206,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	if m.showSpinner {
 		var status string = "stopped"
-		ch := make(chan string)
+
 		for _, item := range m.items {
 			if item.compose.Index != m.choiceIndex {
 				continue
 			}
 			if item.compose.Status == "stopped" {
-				go item.compose.StartAsync(ch)
+				go item.compose.StartAsync(m.ch)
 
 				item.compose.Status = "running"
 				status = "running"
 			} else {
-				go item.compose.StopAsync(ch)
+				go item.compose.StopAsync(m.ch)
 				item.compose.Status = "stopped"
 			}
 		}
@@ -229,8 +231,10 @@ func (m model) View() string {
 	return m.list.View()
 }
 
-func processItem() tea.Cmd {
+func processItem(ch chan string) tea.Cmd {
+
 	return tea.Tick(time.Second*1, func(t time.Time) tea.Msg {
+		<-ch
 		return processMsg{}
 	})
 }
