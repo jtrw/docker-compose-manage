@@ -150,6 +150,14 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
+func (m *model) SetItems(items []list.Item) {
+	listItems := make([]list.Item, len(items))
+	for i, itm := range items {
+		listItems[i] = itm
+	}
+	m.list.SetItems(listItems)
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -167,7 +175,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	case processMsg:
-		// Update the status of the selected item
 		for i, itm := range m.items {
 			if itm.title == m.activeItem.title {
 				status := "stopped"
@@ -183,6 +190,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			listItems[i] = itm
 		}
 		m.list.SetItems(listItems)
+
+		m.SetItems(listItems)
 
 		m.showSpinner = false
 		m.activeItem = item{}
@@ -219,12 +228,9 @@ func (m model) View() string {
 			} else {
 				go item.compose.StopAsync(m.ch)
 				item.compose.Status = "stopped"
+				status = "stopped"
 			}
 		}
-
-		//res := <-ch
-		//
-		//fmt.Println(res)
 
 		return fmt.Sprintf("Processing %s to status %s ... \n\n%s", m.activeItem.title, status, m.spinner.View())
 	}
@@ -232,7 +238,6 @@ func (m model) View() string {
 }
 
 func processItem(ch chan string) tea.Cmd {
-
 	return tea.Tick(time.Second*1, func(t time.Time) tea.Msg {
 		<-ch
 		return processMsg{}
