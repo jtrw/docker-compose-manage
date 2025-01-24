@@ -3,6 +3,7 @@ package docker
 import (
 	"docker-compose-manage/m/app/config"
 	"fmt"
+	"log"
 	"os/exec"
 	"strings"
 )
@@ -48,6 +49,7 @@ func (d DockerCompose) String() string {
 }
 
 func (d DockerCompose) Start() ([]byte, error) {
+	log.Printf("Starting log %s", d.Config.Name)
 	commands := []string{"docker-compose", "up", "-d"}
 
 	if d.Config.Commands.Start != "" {
@@ -64,6 +66,7 @@ func (d DockerCompose) Start() ([]byte, error) {
 }
 
 func (d DockerCompose) Stop() ([]byte, error) {
+	log.Printf("Stopping log %s", d.Config.Name)
 	commands := []string{"docker-compose", "down"}
 
 	if d.Config.Commands.Stop != "" {
@@ -99,7 +102,7 @@ func (d DockerCompose) StartAsync(ch chan string) {
 		ch <- fmt.Sprintf("Error: %v", err)
 		return
 	}
-	ch <- fmt.Sprintf("Started %s", d.Config.Name)
+	ch <- "running"
 }
 
 func (d DockerCompose) StopAsync(ch chan string) {
@@ -108,5 +111,5 @@ func (d DockerCompose) StopAsync(ch chan string) {
 		ch <- fmt.Sprintf("Error: %v", err)
 		return
 	}
-	ch <- fmt.Sprintf("Stopped %s", d.Config.Name)
+	ch <- "stopped"
 }

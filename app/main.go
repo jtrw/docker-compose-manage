@@ -166,13 +166,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			selectedItem, ok := m.list.SelectedItem().(item)
+
 			if ok && !m.showSpinner {
+
+				if selectedItem.compose.Status == "stopped" {
+					go selectedItem.compose.StartAsync(m.ch)
+					selectedItem.compose.Status = "running"
+					//status = "running"
+				} else {
+					go selectedItem.compose.StopAsync(m.ch)
+					selectedItem.compose.Status = "stopped"
+					//status = "stopped"
+				}
+
 				m.activeItem = selectedItem
 				m.showSpinner = true
 				m.spinner = spinner.New()
 				m.choiceIndex = m.list.Index()
 				return m, tea.Batch(m.spinner.Tick, processItem(m.ch))
 			}
+
 		}
 	case processMsg:
 		for i, itm := range m.items {
@@ -216,21 +229,23 @@ func (m model) View() string {
 	if m.showSpinner {
 		var status string = "stopped"
 
-		for _, item := range m.items {
-			if item.compose.Index != m.choiceIndex {
-				continue
-			}
-			if item.compose.Status == "stopped" {
-				go item.compose.StartAsync(m.ch)
-
-				item.compose.Status = "running"
-				status = "running"
-			} else {
-				go item.compose.StopAsync(m.ch)
-				item.compose.Status = "stopped"
-				status = "stopped"
-			}
-		}
+		//status := <-m.ch
+		// for _, item := range m.items {
+		// 	if item.compose.Index != m.choiceIndex {
+		// 		continue
+		// 	}
+		// 	if item.compose.Status == "stopped" {
+		// 		//go item.compose.StartAsync(m.ch)
+		// 		log.Printf("Starting %s", item.title)
+		// 		item.compose.Status = "running"
+		// 		status = "running"
+		// 	} else {
+		// 		//go item.compose.StopAsync(m.ch)
+		// 		log.Printf("Stopping %s", item.title)
+		// 		item.compose.Status = "stopped"
+		// 		status = "stopped"
+		// 	}
+		// }
 
 		return fmt.Sprintf("Processing %s to status %s ... \n\n%s", m.activeItem.title, status, m.spinner.View())
 	}
@@ -238,8 +253,8 @@ func (m model) View() string {
 }
 
 func processItem(ch chan string) tea.Cmd {
-	return tea.Tick(time.Second*1, func(t time.Time) tea.Msg {
-		<-ch
+	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
+		//<-ch
 		return processMsg{}
 	})
 }
