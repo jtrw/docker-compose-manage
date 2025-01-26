@@ -168,7 +168,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			selectedItem, ok := m.list.SelectedItem().(item)
 
 			if ok && !m.showSpinner {
-
 				if selectedItem.compose.Status == "stopped" {
 					go selectedItem.compose.StartAsync(m.ch)
 					selectedItem.compose.Status = "running"
@@ -227,25 +226,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.showSpinner {
-		var status string = "stopped"
+		var status string
+		for _, item := range m.items {
+			if item.compose.Index != m.choiceIndex {
+				continue
+			}
 
-		//status := <-m.ch
-		// for _, item := range m.items {
-		// 	if item.compose.Index != m.choiceIndex {
-		// 		continue
-		// 	}
-		// 	if item.compose.Status == "stopped" {
-		// 		//go item.compose.StartAsync(m.ch)
-		// 		log.Printf("Starting %s", item.title)
-		// 		item.compose.Status = "running"
-		// 		status = "running"
-		// 	} else {
-		// 		//go item.compose.StopAsync(m.ch)
-		// 		log.Printf("Stopping %s", item.title)
-		// 		item.compose.Status = "stopped"
-		// 		status = "stopped"
-		// 	}
-		// }
+			if item.compose.Status == "stopped" {
+				status = "running"
+			} else {
+				status = "stopped"
+			}
+		}
 
 		return fmt.Sprintf("Processing %s to status %s ... \n\n%s", m.activeItem.title, status, m.spinner.View())
 	}
