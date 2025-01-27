@@ -83,6 +83,7 @@ type model struct {
 type processMsg struct{}
 
 func main() {
+	setDebugFile()
 	var opts Options
 	parser := flags.NewParser(&opts, flags.Default)
 	_, err := parser.Parse()
@@ -166,7 +167,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			selectedItem, ok := m.list.SelectedItem().(item)
-
+			log.Printf("Status: %s", selectedItem.compose.Status)
+			log.Printf("%v", selectedItem)
+			log.Printf("Index: %s", m.choiceIndex)
+			log.Printf("Active: %v", m.activeItem)
+			if m.activeItem.title != "" {
+				selectedItem = m.activeItem
+			}
 			if ok && !m.showSpinner {
 				if selectedItem.compose.Status == "stopped" {
 					go selectedItem.compose.StartAsync(m.ch)
@@ -206,7 +213,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.SetItems(listItems)
 
 		m.showSpinner = false
-		m.activeItem = item{}
+		//m.activeItem = item{}
 		return m, nil
 
 	}
@@ -231,6 +238,7 @@ func (m model) View() string {
 			if item.compose.Index != m.choiceIndex {
 				continue
 			}
+			m.activeItem = item
 
 			if item.compose.Status == "stopped" {
 				status = "running"
@@ -249,4 +257,10 @@ func processItem(ch chan string) tea.Cmd {
 		//<-ch
 		return processMsg{}
 	})
+}
+
+func setDebugFile() {
+	if _, err := tea.LogToFile("debug.log", "debug"); err != nil {
+		panic(err)
+	}
 }
