@@ -167,10 +167,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			selectedItem, ok := m.list.SelectedItem().(item)
-			log.Printf("Status: %s", selectedItem.compose.Status)
-			log.Printf("%v", selectedItem)
-			log.Printf("Index: %s", m.choiceIndex)
-			log.Printf("Active: %v", m.activeItem)
+
 			if m.activeItem.title != "" {
 				selectedItem = m.activeItem
 			}
@@ -196,10 +193,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case processMsg:
 		for i, itm := range m.items {
 			if itm.title == m.activeItem.title {
-				status := "stopped"
-				if itm.compose.Status == "stopped" {
-					status = "running"
-				}
+				status := m.activeItem.compose.Status
 				m.items[i] = item{title: itm.title, status: status}
 			}
 		}
@@ -234,18 +228,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	if m.showSpinner {
 		var status string
-		for _, item := range m.items {
-			if item.compose.Index != m.choiceIndex {
-				continue
-			}
-			m.activeItem = item
 
-			if item.compose.Status == "stopped" {
-				status = "running"
-			} else {
-				status = "stopped"
-			}
-		}
+		status = m.activeItem.compose.Status
 
 		return fmt.Sprintf("Processing %s to status %s ... \n\n%s", m.activeItem.title, status, m.spinner.View())
 	}
