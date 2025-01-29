@@ -127,13 +127,13 @@ func getModel(cnf config.Config) model {
 
 	listItems, items := getListItems(composes)
 
-	l := list.New(listItems, itemDelegate{}, defaultWidth, listHeight)
-	l.Title = "Choise a compose to start/stop:"
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.Styles.Title = titleStyle
-	l.Styles.PaginationStyle = paginationStyle
-	l.Styles.HelpStyle = helpStyle
+	// l := list.New(listItems, itemDelegate{}, defaultWidth, listHeight)
+	// l.Title = "Choise a compose to start/stop:"
+	// l.SetShowStatusBar(false)
+	// l.SetFilteringEnabled(false)
+	// l.Styles.Title = titleStyle
+	// l.Styles.PaginationStyle = paginationStyle
+	// l.Styles.HelpStyle = helpStyle
 
 	m := model{
 		list:    list.New(listItems, list.NewDefaultDelegate(), defaultWidth, listHeight),
@@ -167,10 +167,24 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			selectedItem, ok := m.list.SelectedItem().(item)
+			log.Printf("Enter: %v", selectedItem)
+			log.Printf("Enter ActiveItem: %v", m.activeItem)
+			log.Printf("Items: %v", m.items)
+			activeIndex := m.list.Index()
+			log.Printf("ActiveIndex: %v", activeIndex)
 
-			if m.activeItem.title != "" {
-				selectedItem = m.activeItem
+			//status := selectedItem.compose.Status
+
+			for i, itm := range m.items {
+				if i == activeIndex {
+					//status = itm.compose.Status
+					log.Printf("ActiveItem Status: %v", itm.compose.Status)
+				}
 			}
+
+			// if m.activeItem.title != "" {
+			// 	selectedItem = m.activeItem
+			// }
 			if ok && !m.showSpinner {
 				if selectedItem.compose.Status == "stopped" {
 					go selectedItem.compose.StartAsync(m.ch)
@@ -194,7 +208,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i, itm := range m.items {
 			if itm.title == m.activeItem.title {
 				status := m.activeItem.compose.Status
-				m.items[i] = item{title: itm.title, status: status}
+				m.items[i].title = itm.title
+				m.items[i].status = status
+				m.items[i].compose.Status = status
+				//m.items[i] = item{title: itm.title, status: status}
 			}
 		}
 
