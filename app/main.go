@@ -35,7 +35,7 @@ const (
 
 type Options struct {
 	Config string `short:"c" long:"config" env:"CONFIG" default:"config.yml" description:"config file"`
-	Debug  bool   `short:"d" long:"debug" env:"DEBUG" default: false description:"debug mode"`
+	Dbg    bool   `long:"dbg" env:"DEBUG" description:"show debug info"`
 }
 
 type item struct {
@@ -84,7 +84,6 @@ type model struct {
 type processMsg struct{}
 
 func main() {
-	setDebugFile()
 	var opts Options
 	parser := flags.NewParser(&opts, flags.Default)
 	_, err := parser.Parse()
@@ -92,6 +91,8 @@ func main() {
 		log.Printf("[FATAL] %v", err)
 		os.Exit(1)
 	}
+
+	setupLog(opts.Dbg)
 
 	cnf, err := config.LoadConfig(opts.Config)
 	if err != nil {
@@ -233,6 +234,16 @@ func processItem(ch chan string) tea.Cmd {
 		//<-ch
 		return processMsg{}
 	})
+}
+
+func setupLog(dbg bool) {
+	if !dbg {
+		return
+	}
+	if _, err := tea.LogToFile("debug.log", "debug"); err != nil {
+		panic(err)
+	}
+	log.Printf("[DEBUG] debug mode ON")
 }
 
 func setDebugFile() {
