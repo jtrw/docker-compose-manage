@@ -46,13 +46,8 @@ func setupLog(dbg bool) {
 		return
 	}
 	if _, err := tea.LogToFile("debug.log", "debug"); err != nil {
-		panic(err)
+		log.Printf("[FATAL] %v", err)
+		os.Exit(1)
 	}
 	log.Printf("[DEBUG] debug mode ON")
-}
-
-func setDebugFile() {
-	if _, err := tea.LogToFile("debug.log", "debug"); err != nil {
-		panic(err)
-	}
 }

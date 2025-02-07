@@ -1,0 +1,9 @@
+projects:
+  - name: Project1
+    path: /path/to/project1
+    commands:
+      start: make start-all
+      stop: make stop-all
+
+  - name: Project2
+    path: /path/to/project2
