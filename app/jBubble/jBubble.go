@@ -134,11 +134,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if selectedItem.compose.Status == "stopped" {
 					go selectedItem.compose.StartAsync(m.ch)
 					selectedItem.compose.Status = "running"
-					//status = "running"
 				} else {
 					go selectedItem.compose.StopAsync(m.ch)
 					selectedItem.compose.Status = "stopped"
-					//status = "stopped"
 				}
 
 				m.activeItem = selectedItem
