@@ -113,3 +113,15 @@ func (d DockerCompose) StopAsync(ch chan string) {
 	}
 	ch <- "stopped"
 }
+
+func (d DockerCompose) IsStatusStopped() bool {
+	return d.Status == "stopped"
+}
+
+func (d DockerCompose) SetStatus(status string) {
+	d.Status = status
+}
+
+func (d DockerCompose) IsStatusRunning() bool {
+	return d.Status == "running"
+}
