@@ -131,7 +131,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			selectedItem, ok := m.list.SelectedItem().(item)
 
 			if ok && !m.showSpinner {
-				if selectedItem.compose.Status == "stopped" {
+				if selectedItem.compose.IsStatusStopped() {
 					go selectedItem.compose.StartAsync(m.ch)
 					selectedItem.compose.Status = "running"
 				} else {
