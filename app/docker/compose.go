@@ -13,6 +13,44 @@ type Commands struct {
 	Start string
 }
 
+// parseCommand splits a command string into arguments, respecting quoted strings
+func parseCommand(cmd string) []string {
+	var args []string
+	var current strings.Builder
+	inQuotes := false
+	escapeNext := false
+
+	for _, r := range cmd {
+		if escapeNext {
+			current.WriteRune(r)
+			escapeNext = false
+			continue
+		}
+
+		switch r {
+		case '\\':
+			escapeNext = true
+		case '"':
+			inQuotes = !inQuotes
+		case ' ', '\t':
+			if inQuotes {
+				current.WriteRune(r)
+			} else if current.Len() > 0 {
+				args = append(args, current.String())
+				current.Reset()
+			}
+		default:
+			current.WriteRune(r)
+		}
+	}
+
+	if current.Len() > 0 {
+		args = append(args, current.String())
+	}
+
+	return args
+}
+
 type DockerCompose struct {
 	Index    int
 	Path     string
@@ -37,7 +75,11 @@ func LoadComposes(cnf config.Config) ([]DockerCompose, error) {
 	}
 
 	for index, compose := range composes {
-		status, _ := compose.GetActualStatus()
+		status, err := compose.GetActualStatus()
+		if err != nil {
+			log.Printf("[WARN] Failed to get status for %s: %v", compose.Config.Name, err)
+			status = "unknown"
+		}
 		composes[index].Status = status
 	}
 
@@ -48,38 +90,35 @@ func (d DockerCompose) String() string {
 	return fmt.Sprintf("Path: %s, Status: %s", d.Path, d.Status)
 }
 
-func (d DockerCompose) Start() ([]byte, error) {
-	log.Printf("Starting log %s", d.Config.Name)
-	commands := []string{"docker-compose", "up", "-d"}
+func (d DockerCompose) executeCommand(action string, defaultCmd []string, customCmd string) ([]byte, error) {
+	log.Printf("%s %s", action, d.Config.Name)
+	commands := defaultCmd
 
-	if d.Config.Commands.Start != "" {
-		commands = strings.Split(d.Config.Commands.Start, " ")
+	if customCmd != "" {
+		commands = parseCommand(customCmd)
 	}
+
+	if len(commands) == 0 {
+		return nil, fmt.Errorf("empty command")
+	}
+
 	cmd := exec.Command(commands[0], commands[1:]...)
 	cmd.Dir = d.Path
-	output, err := cmd.Output()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, err
+		log.Printf("[ERROR] Failed to %s %s: %v, output: %s", action, d.Config.Name, err, string(output))
+		return output, err
 	}
 
 	return output, nil
 }
 
+func (d DockerCompose) Start() ([]byte, error) {
+	return d.executeCommand("Starting", []string{"docker-compose", "up", "-d"}, d.Config.Commands.Start)
+}
+
 func (d DockerCompose) Stop() ([]byte, error) {
-	log.Printf("Stopping log %s", d.Config.Name)
-	commands := []string{"docker-compose", "down"}
-
-	if d.Config.Commands.Stop != "" {
-		commands = strings.Split(d.Config.Commands.Stop, " ")
-	}
-	cmd := exec.Command(commands[0], commands[1:]...)
-	cmd.Dir = d.Path
-	output, err := cmd.Output()
-	if err != nil {
-		return nil, err
-	}
-
-	return output, nil
+	return d.executeCommand("Stopping", []string{"docker-compose", "down"}, d.Config.Commands.Stop)
 }
 
 func (d DockerCompose) GetActualStatus() (string, error) {
@@ -118,7 +157,7 @@ func (d DockerCompose) IsStatusStopped() bool {
 	return d.Status == "stopped"
 }
 
-func (d DockerCompose) SetStatus(status string) {
+func (d *DockerCompose) SetStatus(status string) {
 	d.Status = status
 }
 

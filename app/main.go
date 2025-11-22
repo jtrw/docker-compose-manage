@@ -33,11 +33,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	m := jBubble.GetModel(cnf)
+	m, err := jBubble.GetModel(cnf)
+	if err != nil {
+		log.Printf("[FATAL] %v", err)
+		os.Exit(1)
+	}
 
 	p := tea.NewProgram(m)
 	if err := p.Start(); err != nil {
 		log.Printf("[FATAL] Error running program: %v\n", err)
+		os.Exit(1)
 	}
 }
 

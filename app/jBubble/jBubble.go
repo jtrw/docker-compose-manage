@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
 	compose "docker-compose-manage/m/app/docker"
 
@@ -36,7 +35,6 @@ type model struct {
 	spinner     spinner.Model
 	showSpinner bool
 	activeItem  item
-	choiceIndex int
 	items       []item
 	ch          chan string
 }
@@ -47,7 +45,9 @@ type item struct {
 	compose compose.DockerCompose
 }
 
-type processMsg struct{}
+type processMsg struct {
+	status string
+}
 
 func (i item) Title() string       { return i.title }
 func (i item) Description() string { return i.status }
@@ -77,23 +77,27 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 }
 
 func getListItems(composes []compose.DockerCompose) ([]list.Item, []item) {
-	items := []item{}
+	items := make([]item, len(composes))
+	listItems := make([]list.Item, len(composes))
 
-	for _, compose := range composes {
-		title := fmt.Sprintf("%s", compose.Config.Name)
-		items = append(items, item{title: title, status: compose.Status, compose: compose})
-	}
-
-	listItems := make([]list.Item, len(items))
-	for i, itm := range items {
+	for i, compose := range composes {
+		itm := item{
+			title:   compose.Config.Name,
+			status:  compose.Status,
+			compose: compose,
+		}
+		items[i] = itm
 		listItems[i] = itm
 	}
 
 	return listItems, items
 }
 
-func GetModel(cnf config.Config) model {
-	composes, _ := compose.LoadComposes(cnf)
+func GetModel(cnf config.Config) (model, error) {
+	composes, err := compose.LoadComposes(cnf)
+	if err != nil {
+		return model{}, err
+	}
 
 	listItems, items := getListItems(composes)
 
@@ -106,19 +110,11 @@ func GetModel(cnf config.Config) model {
 
 	m.list.Title = "Items List"
 
-	return m
+	return m, nil
 }
 
 func (m model) Init() tea.Cmd {
 	return nil
-}
-
-func (m *model) SetItems(items []list.Item) {
-	listItems := make([]list.Item, len(items))
-	for i, itm := range items {
-		listItems[i] = itm
-	}
-	m.list.SetItems(listItems)
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -133,16 +129,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if ok && !m.showSpinner {
 				if selectedItem.compose.IsStatusStopped() {
 					go selectedItem.compose.StartAsync(m.ch)
-					selectedItem.compose.Status = "running"
 				} else {
 					go selectedItem.compose.StopAsync(m.ch)
-					selectedItem.compose.Status = "stopped"
 				}
 
 				m.activeItem = selectedItem
 				m.showSpinner = true
 				m.spinner = spinner.New()
-				m.choiceIndex = m.list.Index()
 				return m, tea.Batch(m.spinner.Tick, processItem(m.ch))
 			}
 
@@ -150,10 +143,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case processMsg:
 		for i, itm := range m.items {
 			if itm.title == m.activeItem.title {
-				status := m.activeItem.compose.Status
-				m.items[i].title = itm.title
-				m.items[i].status = status
-				m.items[i].compose.Status = status
+				m.items[i].status = msg.status
+				m.items[i].compose.Status = msg.status
 			}
 		}
 
@@ -163,10 +154,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.list.SetItems(listItems)
 
-		m.SetItems(listItems)
-
 		m.showSpinner = false
-		//m.activeItem = item{}
 		return m, nil
 
 	}
@@ -186,18 +174,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) View() string {
 	if m.showSpinner {
-		var status string
-
-		status = m.activeItem.compose.Status
-
-		return fmt.Sprintf("Processing %s to status %s ... \n\n%s", m.activeItem.title, status, m.spinner.View())
+		targetStatus := "running"
+		if !m.activeItem.compose.IsStatusStopped() {
+			targetStatus = "stopped"
+		}
+		return fmt.Sprintf("Processing %s to status %s ... \n\n%s", m.activeItem.title, targetStatus, m.spinner.View())
 	}
 	return m.list.View()
 }
 
 func processItem(ch chan string) tea.Cmd {
-	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
-		//<-ch
-		return processMsg{}
-	})
+	return func() tea.Msg {
+		status := <-ch
+		return processMsg{status: status}
+	}
 }
